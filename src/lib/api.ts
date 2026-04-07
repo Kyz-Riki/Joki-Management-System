@@ -1,82 +1,177 @@
 import { GAME_LIST } from "@/lib/constants";
 
-export type Worker = { id: string, name: string, created_at: string };
-export type Container = { id: string, game_name: string, game_code: string, slug: string, is_active: boolean, active_orders_count: number };
-export type Order = { id: string, queue_number: number, customer_name: string, details?: string, worker_id: string | null, worker_name?: string, status: "QUEUE" | "PROGRESS" | "DONE" | "ARCHIVED", created_at: string, updated_at: string };
-
-// Dummy Data
-let mockWorkers: Worker[] = [
-  { id: "w1", name: "Rina (Mage)", created_at: new Date().toISOString() },
-  { id: "w2", name: "Budi (Jungler)", created_at: new Date().toISOString() },
-];
-
-let mockContainers: Container[] = [
-  { id: "c1", game_name: "Mobile Legends: Bang Bang", game_code: "mlbb", slug: "/q/izumi-store/mlbb", is_active: true, active_orders_count: 2 },
-];
-
-let mockOrders: Record<string, Order[]> = {
-  "c1": [
-    { id: "o1", queue_number: 1, customer_name: "Rafi Ahmad", details: "Mythic Glory 50x", worker_id: "w1", worker_name: "Rina (Mage)", status: "PROGRESS", created_at: new Date(Date.now() - 3600000).toISOString(), updated_at: new Date().toISOString() },
-    { id: "o2", queue_number: 2, customer_name: "Reza Rahadian", details: "Legend V to Mythic", worker_id: "w2", worker_name: "Budi (Jungler)", status: "QUEUE", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-    { id: "o3", queue_number: 3, customer_name: "Bagas", details: "Epic", worker_id: "w1", worker_name: "Rina (Mage)", status: "DONE", created_at: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date().toISOString() },
-  ]
+export type Worker = { id: string; name: string; created_at: string };
+export type Container = {
+  id: string;
+  game_name: string;
+  game_code: string;
+  slug: string;
+  is_active: boolean;
+  active_orders_count: number;
+};
+export type Order = {
+  id: string;
+  queue_number: number;
+  customer_name: string;
+  details?: string;
+  worker_id: string | null;
+  worker_name?: string;
+  status: "QUEUE" | "PROGRESS" | "DONE" | "ARCHIVED";
+  created_at: string;
+  updated_at: string;
 };
 
-const requireDelay = () => new Promise(r => setTimeout(r, 600));
+// Helper to handle API responses
+async function apiFetch(url: string, options?: RequestInit): Promise<any> {
+  const res = await fetch(url, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...options?.headers },
+  });
+  const json = await res.json();
+  if (!json.success) {
+    const error = new Error(json.error?.message || "Terjadi kesalahan");
+    (error as any).code = json.error?.code;
+    throw error;
+  }
+  return json.data;
+}
 
 export const api = {
   workers: {
-    list: async () => { await requireDelay(); return [...mockWorkers]; },
-    create: async (name: string) => { await requireDelay(); const w = { id: Math.random().toString(), name, created_at: new Date().toISOString() }; mockWorkers.push(w); return w; },
-    update: async (id: string, name: string) => { await requireDelay(); const w = mockWorkers.find(x => x.id === id); if (w) w.name = name; return w; },
-    delete: async (id: string) => { await requireDelay(); mockWorkers = mockWorkers.filter(x => x.id !== id); }
+    list: async (): Promise<Worker[]> => {
+      const data = await apiFetch("/api/workers");
+      return data.workers;
+    },
+    create: async (name: string): Promise<Worker> => {
+      const data = await apiFetch("/api/workers", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      return data.worker;
+    },
+    update: async (id: string, name: string): Promise<Worker> => {
+      const data = await apiFetch(`/api/workers/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name }),
+      });
+      return data.worker;
+    },
+    delete: async (id: string): Promise<void> => {
+      await apiFetch(`/api/workers/${id}`, { method: "DELETE" });
+    },
   },
   containers: {
-    list: async () => { await requireDelay(); return [...mockContainers]; },
-    create: async (game_code: string, username: string) => { 
-       await requireDelay(); 
-       const game = GAME_LIST.find(g => g.code === game_code);
-       if (!game) throw new Error("Game not found");
-       const c = { id: Math.random().toString(), game_name: game.name, game_code, slug: `/q/${username}/${game_code}`, is_active: true, active_orders_count: 0 };
-       mockContainers.push(c);
-       mockOrders[c.id] = [];
-       return c;
+    list: async (): Promise<Container[]> => {
+      const data = await apiFetch("/api/containers");
+      return data.containers;
     },
-    toggleActive: async (id: string) => { await requireDelay(); const c = mockContainers.find(x => x.id === id); if (c) c.is_active = !c.is_active; return c; },
-    delete: async (id: string) => { await requireDelay(); mockContainers = mockContainers.filter(x => x.id !== id); delete mockOrders[id]; }
+    create: async (
+      game_code: string,
+      _username: string,
+    ): Promise<Container> => {
+      // Note: username is derived server-side from the session, ignored here
+      const data = await apiFetch("/api/containers", {
+        method: "POST",
+        body: JSON.stringify({ game_code }),
+      });
+      return data.container;
+    },
+    toggleActive: async (id: string): Promise<Container> => {
+      const data = await apiFetch(`/api/containers/${id}/toggle`, {
+        method: "PATCH",
+      });
+      return data.container;
+    },
+    delete: async (id: string): Promise<void> => {
+      await apiFetch(`/api/containers/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: true }),
+      });
+    },
   },
   orders: {
-    list: async (containerId: string) => { await requireDelay(); return [...(mockOrders[containerId] || [])]; },
-    create: async (containerId: string, customer_name: string, details: string, worker_id: string) => {
-      await requireDelay();
-      if (!mockOrders[containerId]) mockOrders[containerId] = [];
-      const worker = mockWorkers.find(w => w.id === worker_id);
-      const queue_number = mockOrders[containerId].length + 1;
-      const o: Order = { id: Math.random().toString(), queue_number, customer_name, details, worker_id, worker_name: worker?.name, status: "QUEUE", created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-      mockOrders[containerId].push(o);
-      const c = mockContainers.find(x => x.id === containerId);
-      if (c) c.active_orders_count++;
-      return o;
+    list: async (
+      containerId: string,
+      statusFilter?: string,
+    ): Promise<Order[]> => {
+      const url = statusFilter
+        ? `/api/containers/${containerId}/orders?status=${statusFilter}`
+        : `/api/containers/${containerId}/orders`;
+      const data = await apiFetch(url);
+      return data.orders;
     },
-    updateStatus: async (containerId: string, orderId: string, status: Order["status"]) => {
-      await requireDelay();
-      const o = mockOrders[containerId]?.find(x => x.id === orderId);
-      if (o) {
-        if ((o.status === "QUEUE" || o.status === "PROGRESS") && (status === "DONE" || status === "ARCHIVED")) {
-           const c = mockContainers.find(x => x.id === containerId);
-           if (c && c.active_orders_count > 0) c.active_orders_count--;
-        } else if ((o.status === "DONE" || o.status === "ARCHIVED") && (status === "QUEUE" || status === "PROGRESS")) {
-           const c = mockContainers.find(x => x.id === containerId);
-           if (c) c.active_orders_count++;
-        }
-        o.status = status;
-        o.updated_at = new Date().toISOString();
+    create: async (
+      containerId: string,
+      customer_name: string,
+      details: string,
+      worker_id: string,
+    ): Promise<Order> => {
+      const data = await apiFetch(`/api/containers/${containerId}/orders`, {
+        method: "POST",
+        body: JSON.stringify({ customer_name, details, worker_id }),
+      });
+      return data.order;
+    },
+    updateStatus: async (
+      containerId: string,
+      orderId: string,
+      status: Order["status"],
+    ): Promise<Order | undefined> => {
+      // Map status strings to action strings for the backend
+      const actionMap: Record<string, string> = {
+        PROGRESS: "process",
+        DONE: "complete",
+        ARCHIVED: "archive",
+        QUEUE: "reactivate",
+      };
+      const action = actionMap[status];
+      if (!action) throw new Error("Invalid status");
+
+      const data = await apiFetch(
+        `/api/containers/${containerId}/orders/${orderId}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ action }),
+        },
+      );
+      return data.order;
+    },
+    delete: async (containerId: string, orderId: string): Promise<void> => {
+      await apiFetch(`/api/containers/${containerId}/orders/${orderId}`, {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: true }),
+      });
+    },
+  },
+  publicQueue: {
+    get: async (
+      username: string,
+      gameCode: string,
+    ): Promise<{
+      status: "open" | "closed";
+      container: { game_name: string; username: string };
+      orders?: Array<{
+        queue_number: number;
+        censored_name: string;
+        status: string;
+        created_at: string;
+      }>;
+      stats?: {
+        total_queue: number;
+        total_progress: number;
+        done_today: number;
+      };
+      message?: string;
+    }> => {
+      const res = await fetch(`/api/public/queue/${username}/${gameCode}`);
+      const json = await res.json();
+      if (!json.success && json.error?.code !== "NOT_FOUND") {
+        throw new Error(json.error?.message || "Terjadi kesalahan");
       }
-      return o;
+      if (!json.success) {
+        throw new Error("NOT_FOUND");
+      }
+      return json.data;
     },
-    delete: async (containerId: string, orderId: string) => {
-      await requireDelay();
-      mockOrders[containerId] = mockOrders[containerId]?.filter(x => x.id !== orderId);
-    }
-  }
+  },
 };
