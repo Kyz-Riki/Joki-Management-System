@@ -4,9 +4,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, User } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function TopBar() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   
   // Format avatar initials
   const initials = user?.username ? user.username.substring(0, 2).toUpperCase() : "U";
@@ -30,6 +32,11 @@ export function TopBar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/dashboard/profile")}>
+              <User className="h-4 w-4 mr-2" />
+              <span>Profil Pengaturan</span>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30" onClick={logout}>
               <LogOut className="h-4 w-4 mr-2" />

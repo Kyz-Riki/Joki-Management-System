@@ -13,7 +13,7 @@ function getSupabaseClient() {
 }
 
 export function useAuth() {
-  const [user, setUser] = useState<{ username: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; email?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -23,7 +23,10 @@ export function useAuth() {
     // Check current session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.user_metadata?.username) {
-        setUser({ username: session.user.user_metadata.username });
+        setUser({ 
+          username: session.user.user_metadata.username,
+          email: session.user.email
+        });
       }
       setIsLoading(false);
     });
@@ -33,7 +36,10 @@ export function useAuth() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.user_metadata?.username) {
-        setUser({ username: session.user.user_metadata.username });
+        setUser({ 
+          username: session.user.user_metadata.username,
+          email: session.user.email
+        });
       } else {
         setUser(null);
       }
@@ -72,7 +78,10 @@ export function useAuth() {
         refresh_token: data.data.session.refresh_token,
       });
 
-      setUser({ username: data.data.user.username });
+      setUser({ 
+        username: data.data.user.username,
+        email: data.data.user.email
+      });
       toast("Login berhasil", {
         description: `Selamat datang kembali, ${username}!`,
       });
