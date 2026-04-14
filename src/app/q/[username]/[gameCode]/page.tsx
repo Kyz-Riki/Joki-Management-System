@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, Container, Order } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -13,10 +14,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, SearchX } from "lucide-react";
+import { Lock, Search, SearchX } from "lucide-react";
 import { StatusBadge } from "@/components/queue/StatusBadge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+// Extend Order type locally to include uid for public queue
+type PublicOrder = Order & { uid?: string };
 
 export default function PublicQueuePage() {
   const params = useParams();
@@ -24,9 +29,14 @@ export default function PublicQueuePage() {
   const gameCode = params.gameCode as string;
 
   const [container, setContainer] = useState<Container | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<PublicOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNotFound, setIsNotFound] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedUid, setHighlightedUid] = useState<string | null>(null);
+  const [searchStatus, setSearchStatus] = useState<'idle' | 'found' | 'not_found'>('idle');
 
   useEffect(() => {
     loadData();
@@ -60,10 +70,10 @@ export default function PublicQueuePage() {
         active_orders_count: data.stats?.total_queue ?? 0,
       });
 
-      // Map public order format to Order type.
-      // customer_name is already censored server-side via censored_name.
-      const mappedOrders: Order[] = (data.orders ?? []).map((o) => ({
+      // Map public order format to Order type — uid included
+      const mappedOrders: PublicOrder[] = (data.orders ?? []).map((o) => ({
         id: "",
+        uid: o.uid,
         queue_number: o.queue_number,
         customer_name: o.censored_name,
         details: undefined,
@@ -86,6 +96,13 @@ export default function PublicQueuePage() {
       });
 
       setOrders(mappedOrders);
+
+      // Re-validate current search after data refresh
+      if (searchQuery.length === 6) {
+        const match = mappedOrders.find(o => o.uid === searchQuery);
+        setHighlightedUid(match ? searchQuery : null);
+        setSearchStatus(match ? 'found' : 'not_found');
+      }
     } catch (error: any) {
       if (error.message === "NOT_FOUND") {
         setIsNotFound(true);
@@ -94,6 +111,32 @@ export default function PublicQueuePage() {
       setIsLoading(false);
     }
   }
+
+  function handleSearch(raw: string) {
+    // Normalisasi ke uppercase — satu titik kontrol
+    const query = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    setSearchQuery(query);
+
+    if (query.length === 6) {
+      const match = orders.find(o => o.uid === query);
+      setHighlightedUid(match ? query : null);
+      setSearchStatus(match ? 'found' : 'not_found');
+    } else {
+      setHighlightedUid(null);
+      setSearchStatus('idle');
+    }
+  }
+
+  // Find highlighted order's position info
+  const highlightedOrder = highlightedUid
+    ? orders.find(o => o.uid === highlightedUid)
+    : null;
+  const activeDisplayOrders = orders.filter(
+    o => o.status === 'QUEUE' || o.status === 'PROGRESS'
+  );
+  const highlightedPosition = highlightedOrder && highlightedOrder.status !== 'DONE'
+    ? activeDisplayOrders.findIndex(o => o.uid === highlightedUid) + 1
+    : null;
 
   if (isLoading)
     return (
@@ -227,6 +270,46 @@ export default function PublicQueuePage() {
             </p>
           </div>
 
+          {/* SEARCH BOX */}
+          <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                id="queue-search"
+                placeholder="Masukkan kode antrean kamu (contoh: A3F9KL)"
+                className="pl-9 uppercase tracking-widest font-mono"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                maxLength={6}
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Search result panel */}
+            {searchStatus === 'found' && highlightedOrder && (
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-1">
+                <span className="text-xl">🎯</span>
+                <div className="text-sm">
+                  <p className="font-semibold text-primary">Antrean Kamu Ditemukan!</p>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    No. <span className="font-bold">#{highlightedOrder.queue_number}</span>
+                    {' · '}Status: <span className="font-medium capitalize">{highlightedOrder.status === 'QUEUE' ? 'Menunggu' : highlightedOrder.status === 'PROGRESS' ? 'Sedang Diproses' : 'Selesai'}</span>
+                    {highlightedPosition !== null && (
+                      <> · Posisi ke-<span className="font-bold">{highlightedPosition}</span></>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {searchStatus === 'not_found' && searchQuery.length === 6 && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-sm text-red-600 dark:text-red-400 animate-in fade-in">
+                <SearchX className="h-4 w-4 shrink-0" />
+                Kode tidak ditemukan di antrean aktif.
+              </div>
+            )}
+          </div>
+
           {displayOrders.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               Belum ada antrean masuk.
@@ -248,13 +331,15 @@ export default function PublicQueuePage() {
                   {displayOrders.map((order, idx) => (
                     <TableRow
                       key={order.id || `${order.queue_number}-${idx}`}
-                      className={`${order.status === "PROGRESS" ? "bg-amber-50/30 dark:bg-amber-950/20" : ""}`}
+                      className={cn(
+                        order.uid === highlightedUid && 'bg-primary/10 ring-2 ring-primary ring-inset',
+                        order.status === "PROGRESS" && order.uid !== highlightedUid && "bg-amber-50/30 dark:bg-amber-950/20"
+                      )}
                     >
                       <TableCell className="font-bold text-slate-700 dark:text-slate-300">
                         #{order.queue_number}
                       </TableCell>
                       <TableCell className="font-medium text-base">
-                        {/* Name is already censored server-side */}
                         {order.customer_name}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-slate-500 text-sm">

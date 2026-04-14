@@ -67,6 +67,7 @@ export const orders = pgTable(
                      .references(() => containers.id, { onDelete: 'cascade' }),
     worker_id:     uuid('worker_id')
                      .references(() => workers.id, { onDelete: 'set null' }),
+    uid:           text('uid').unique().notNull(),
     queue_number:  integer('queue_number').notNull(),
     customer_name: text('customer_name').notNull(),
     details:       text('details'),

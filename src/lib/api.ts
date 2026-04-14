@@ -11,6 +11,7 @@ export type Container = {
 };
 export type Order = {
   id: string;
+  uid?: string;
   queue_number: number;
   customer_name: string;
   details?: string;
@@ -147,6 +148,7 @@ export const api = {
       status: "open" | "closed";
       container: { game_name: string; username: string };
       orders?: Array<{
+        uid: string;
         queue_number: number;
         censored_name: string;
         status: string;

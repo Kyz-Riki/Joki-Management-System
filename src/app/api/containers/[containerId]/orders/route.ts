@@ -6,6 +6,7 @@ import { handleApiError } from "@/lib/errors";
 import { getCurrentOwner, assertContainerOwnership } from "@/lib/auth";
 import { countActiveOrders } from "@/lib/db-helpers";
 import { orderSchema } from "@/lib/validations";
+import { generateOrderUid } from "@/lib/utils";
 
 export async function GET(
   request: Request,
@@ -30,6 +31,7 @@ export async function GET(
     const result = await db
       .select({
         id: orders.id,
+        uid: orders.uid,
         queue_number: orders.queue_number,
         customer_name: orders.customer_name,
         details: orders.details,
@@ -85,11 +87,21 @@ export async function POST(
       );
       const nextNum = Number((maxResult as any)[0]?.next_num ?? 1);
 
+      // Generate UID — retry once on the extremely rare collision
+      let uid = generateOrderUid();
+      const [existing] = await tx
+        .select({ id: orders.id })
+        .from(orders)
+        .where(eq(orders.uid, uid))
+        .limit(1);
+      if (existing) uid = generateOrderUid();
+
       const [order] = await tx
         .insert(orders)
         .values({
           container_id: containerId,
           worker_id: worker_id,
+          uid,
           queue_number: nextNum,
           customer_name,
           details: details ?? null,

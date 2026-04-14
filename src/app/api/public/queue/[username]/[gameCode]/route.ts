@@ -38,6 +38,7 @@ export async function GET(
     // Fetch active + today's done orders
     const allOrders = await db
       .select({
+        uid: orders.uid,
         queue_number: orders.queue_number,
         customer_name: orders.customer_name,
         status: orders.status,
@@ -69,6 +70,7 @@ export async function GET(
 
     // Censor names server-side — NEVER expose real names publicly
     const publicOrders = displayOrders.map(o => ({
+      uid: o.uid,
       queue_number: o.queue_number,
       censored_name: censorName(o.customer_name),
       status: o.status,

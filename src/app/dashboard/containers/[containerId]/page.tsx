@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Plus, Clock, PlayCircle, CheckCircle2, History, Trash2, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, PlayCircle, CheckCircle2, History, Trash2, ArrowLeft, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -28,6 +28,12 @@ export default function OrderManagementPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [newOrder, setNewOrder] = useState({ name: "", details: "", workerId: "" });
+
+  // Success dialog after order creation
+  const [createdOrder, setCreatedOrder] = useState<{ uid: string; queue_number: number } | null>(null);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -48,6 +54,9 @@ export default function OrderManagementPage() {
       setContainer(curr);
       setWorkers(await api.workers.list());
       setOrders(await api.orders.list(containerId));
+    } catch (err) {
+      console.error("Gagal memuat data", err);
+      // Jangan tampilkan toast berulang kali saat polling jika gagal network
     } finally {
        setIsLoading(false);
     }
@@ -57,14 +66,35 @@ export default function OrderManagementPage() {
     e.preventDefault();
     setIsAdding(true);
     try {
-      await api.orders.create(containerId, newOrder.name, newOrder.details, newOrder.workerId);
-      toast.success("Order berhasil dimasukkan dalam antrean");
+      const order = await api.orders.create(containerId, newOrder.name, newOrder.details, newOrder.workerId);
       setIsAddOpen(false);
       setNewOrder({ name: "", details: "", workerId: "" });
+      // Tampilkan dialog sukses dengan UID
+      if (order.uid) {
+        setCreatedOrder({ uid: order.uid, queue_number: order.queue_number });
+        setIsSuccessOpen(true);
+      } else {
+        toast.success("Order berhasil dimasukkan dalam antrean");
+      }
       loadData();
     } finally {
       setIsAdding(false);
     }
+  }
+
+  function handleCopyUid() {
+    if (!createdOrder) return;
+    navigator.clipboard.writeText(createdOrder.uid).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  }
+
+  function handleCopyOrderUid(orderId: string, uid: string) {
+    navigator.clipboard.writeText(uid).then(() => {
+      setCopiedId(orderId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   }
 
   async function updateStatus(id: string, status: Order["status"], name: string) {
@@ -146,6 +176,52 @@ export default function OrderManagementPage() {
         </div>
       </div>
 
+      {/* SUCCESS DIALOG */}
+      <Dialog open={isSuccessOpen} onOpenChange={(open) => { setIsSuccessOpen(open); if (!open) setIsCopied(false); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-500">
+              <CheckCircle2 className="h-5 w-5" />
+              Order Berhasil Ditambahkan!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="text-center">
+              <p className="text-sm text-slate-500">Nomor Antrian</p>
+              <p className="text-4xl font-bold text-slate-800 dark:text-slate-100">#{createdOrder?.queue_number}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Kode Lacak Customer:</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 text-center">
+                  <span className="text-2xl font-mono font-bold tracking-[0.3em] text-slate-800 dark:text-slate-100">
+                    {createdOrder?.uid}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyUid}
+                  className={isCopied ? "text-green-600 border-green-300" : ""}
+                  title="Salin kode"
+                >
+                  {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              {isCopied && (
+                <p className="text-xs text-green-600 text-center animate-in fade-in">✓ Kode disalin!</p>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 text-center bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
+              Berikan kode ini kepada customer agar mereka bisa melacak posisi antrean di halaman publik.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setIsSuccessOpen(false)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* PROGRESS SECTION */}
       <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/30 rounded-xl p-4 sm:p-6 shadow-sm">
         <h2 className="text-lg font-bold flex items-center gap-2 text-amber-700 dark:text-amber-500 mb-4">
@@ -163,7 +239,33 @@ export default function OrderManagementPage() {
                      <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold px-2.5 py-1 rounded-md text-xs">
                        #{order.queue_number}
                      </span>
-                     <span className="text-xs text-slate-500">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                     <div className="flex items-center gap-1.5">
+                        {order.uid ? (
+                          <button
+                            onClick={() => handleCopyOrderUid(order.id, order.uid!)}
+                            title="Salin kode lacak customer"
+                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors ${
+                              copiedId === order.id
+                                ? "bg-green-50 border-green-300 text-green-600 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400"
+                                : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700"
+                            }`}
+                          >
+                            {copiedId === order.id ? (
+                              <><Check className="h-3 w-3" />Tersalin!</>
+                            ) : (
+                              <><Copy className="h-3 w-3" />{order.uid}</>
+                            )}
+                          </button>
+                        ) : (
+                          <span
+                            title="Order lama, resave untuk memunculkan UID"
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border bg-slate-50 border-slate-200 text-slate-400 italic dark:bg-slate-900 dark:border-slate-800 dark:text-slate-600 cursor-not-allowed"
+                          >
+                            <span className="w-10 text-center">-</span>
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-500">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
                    </div>
                    <div>
                      <p className="font-bold text-base truncate">{order.customer_name}</p>
@@ -197,7 +299,33 @@ export default function OrderManagementPage() {
                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold px-2.5 py-1 rounded-md text-xs">
                        #{order.queue_number}
                      </span>
-                     <span className="text-xs text-slate-500">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                     <div className="flex items-center gap-1.5">
+                        {order.uid ? (
+                          <button
+                            onClick={() => handleCopyOrderUid(order.id, order.uid!)}
+                            title="Salin kode lacak customer"
+                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors ${
+                              copiedId === order.id
+                                ? "bg-green-50 border-green-300 text-green-600 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400"
+                                : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700"
+                            }`}
+                          >
+                            {copiedId === order.id ? (
+                              <><Check className="h-3 w-3" />Tersalin!</>
+                            ) : (
+                              <><Copy className="h-3 w-3" />{order.uid}</>
+                            )}
+                          </button>
+                        ) : (
+                          <span
+                            title="Order lama, resave untuk memunculkan UID"
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border bg-slate-50 border-slate-200 text-slate-400 italic dark:bg-slate-900 dark:border-slate-800 dark:text-slate-600 cursor-not-allowed"
+                          >
+                            <span className="w-10 text-center">-</span>
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-500">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
                    </div>
                    <div>
                      <p className="font-bold text-base truncate">{order.customer_name}</p>
