@@ -1,4 +1,4 @@
-import { GAME_LIST } from "@/lib/constants";
+
 
 export type Worker = { id: string; name: string; created_at: string };
 export type Container = {
@@ -65,14 +65,10 @@ export const api = {
       const data = await apiFetch("/api/containers");
       return data.containers;
     },
-    create: async (
-      game_code: string,
-      _username: string,
-    ): Promise<Container> => {
-      // Note: username is derived server-side from the session, ignored here
+    create: async (game_name: string): Promise<Container> => {
       const data = await apiFetch("/api/containers", {
         method: "POST",
-        body: JSON.stringify({ game_code }),
+        body: JSON.stringify({ game_name }),
       });
       return data.container;
     },

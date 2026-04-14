@@ -6,7 +6,7 @@ import { containerSchema } from "@/lib/validations";
 import { getCurrentOwner } from "@/lib/auth";
 import { countContainersByOwner } from "@/lib/db-helpers";
 import { handleApiError } from "@/lib/errors";
-import { GAME_LIST } from "@/lib/constants";
+import { slugifyGameName } from "@/lib/utils";
 
 export async function GET() {
   try {
@@ -57,7 +57,17 @@ export async function POST(request: Request) {
         422,
       );
     }
-    const { game_code } = result.data;
+    const { game_name } = result.data;
+
+    const game_code = slugifyGameName(game_name);
+
+    if (!game_code) {
+      return err(
+        "VALIDATION_ERROR",
+        "Nama game menghasilkan slug kosong. Gunakan nama yang valid.",
+        422,
+      );
+    }
 
     const containerCount = await countContainersByOwner(owner.id);
     if (containerCount >= 5) {
@@ -81,12 +91,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (existing) {
-      return err("CONFLICT", "Container untuk game ini sudah ada.", 409);
-    }
-
-    const game = GAME_LIST.find((g) => g.code === game_code);
-    if (!game) {
-      return err("VALIDATION_ERROR", "Game tidak valid.", 422);
+      return err("CONFLICT", `Container untuk game "${game_name}" sudah ada.`, 409);
     }
 
     // Slug stored without leading slash: "{username}/{game_code}"
@@ -96,7 +101,7 @@ export async function POST(request: Request) {
       .insert(containers)
       .values({
         owner_id: owner.id,
-        game_name: game.name,
+        game_name,
         game_code,
         slug,
         is_active: true,

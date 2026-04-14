@@ -29,7 +29,11 @@ export const workerSchema = z.object({
 });
 
 export const containerSchema = z.object({
-  game_code: z.enum(["mlbb", "val", "ff", "hsr", "gi", "aov", "pubgm", "cod"]),
+  game_name: z
+    .string()
+    .min(2, "Nama game minimal 2 karakter")
+    .max(50, "Nama game maksimal 50 karakter")
+    .trim(),
 });
 
 export const orderSchema = z.object({

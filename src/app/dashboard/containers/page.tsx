@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, Container } from "@/lib/api";
-import { GAME_LIST } from "@/lib/constants";
+
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,8 +23,20 @@ export default function ContainersPage() {
   
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [selectedGameCode, setSelectedGameCode] = useState("");
+  const [gameName, setGameName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+
+  // Preview slug (untuk tampilan URL preview)
+  function previewSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
   
   // Two step delete confirmation
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -42,12 +54,12 @@ export default function ContainersPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedGameCode || !user?.username) return;
+    if (!gameName.trim()) return;
     setIsAdding(true);
     try {
-      await api.containers.create(selectedGameCode, user.username);
+      await api.containers.create(gameName.trim());
       toast.success("Container antrean berhasil dibuat");
-      setSelectedGameCode("");
+      setGameName("");
       setIsAddOpen(false);
       loadContainers();
     } catch (err: any) {
@@ -80,9 +92,6 @@ export default function ContainersPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const usedGameCodes = containers.map(c => c.game_code);
-  const availableGames = GAME_LIST.filter(g => !usedGameCodes.includes(g.code));
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -96,7 +105,7 @@ export default function ContainersPage() {
           </span>
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger render={
-              <Button disabled={containers.length >= 5 || availableGames.length === 0}>
+              <Button disabled={containers.length >= 5}>
                 <Plus className="mr-2 h-4 w-4" /> Buat Container
               </Button>
             } />
@@ -105,34 +114,26 @@ export default function ContainersPage() {
                 <DialogHeader>
                   <DialogTitle>Buat Container Antrean</DialogTitle>
                   <DialogDescription>
-                    Pilih layanan game. Satu game hanya bisa memiliki satu antrean.
+                    Masukkan nama game yang ingin kamu buka antreannya.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Pilih Game</label>
-                    <select 
-                      className="w-full flex h-10 items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus:ring-slate-300"
-                      value={selectedGameCode}
-                      onChange={(e) => setSelectedGameCode(e.target.value)}
+                    <label className="text-sm font-medium">Nama Game</label>
+                    <Input
+                      value={gameName}
+                      onChange={(e) => setGameName(e.target.value)}
+                      placeholder="Contoh: Mobile Legends, Genshin Impact, Roblox..."
+                      maxLength={50}
                       required
-                    >
-                      <option value="" disabled>-- Pilih Game --</option>
-                      {GAME_LIST.map((game) => (
-                        <option 
-                          key={game.code} 
-                          value={game.code}
-                          disabled={usedGameCodes.includes(game.code)}
-                        >
-                          {game.name} {usedGameCodes.includes(game.code) && "(Sudah Dibuat)"}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
-                  {selectedGameCode && user && (
+                  {gameName.trim() && user && (
                     <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-md border text-sm text-slate-500 break-all">
                       Preview Link:<br/>
-                      <strong className="text-slate-900 dark:text-slate-200">/q/{user.username}/{selectedGameCode}</strong>
+                      <strong className="text-slate-900 dark:text-slate-200">
+                        /q/{user.username}/{previewSlug(gameName) || "..."}
+                      </strong>
                     </div>
                   )}
                 </div>
@@ -140,7 +141,7 @@ export default function ContainersPage() {
                   <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} disabled={isAdding}>
                     Batal
                   </Button>
-                  <Button type="submit" disabled={isAdding || !selectedGameCode}>
+                  <Button type="submit" disabled={isAdding || !gameName.trim()}>
                     {isAdding && <Loader2 className="h-4 w-4 animate-spin mr-2"/>}
                     Buat Sekarang
                   </Button>
