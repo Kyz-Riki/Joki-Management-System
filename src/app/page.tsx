@@ -7,7 +7,7 @@ export default function LandingPage() {
     <div className="flex min-h-screen flex-col font-sans">
       <header className="px-4 lg:px-6 h-16 flex items-center border-b bg-white/50 backdrop-blur-md sticky top-0 z-50">
         <Link href="/" className="flex items-center justify-center">
-          <span className="font-bold text-xl tracking-tight text-primary">JokiSystem.</span>
+          <span className="font-bold text-xl tracking-tight text-primary">JokiFlow.</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
           <Link href="/login" className="text-sm font-medium hover:text-primary transition-colors">
@@ -82,7 +82,7 @@ export default function LandingPage() {
       </main>
       <footer className="flex flex-col gap-2 sm:flex-row py-8 w-full shrink-0 items-center justify-center px-4 md:px-6 border-t bg-slate-50 dark:bg-slate-950">
         <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
-          © 2026 JokiSystem. Built for professional owners.
+          © 2026 JokiFlow. Built for professional owners.
         </p>
       </footer>
     </div>

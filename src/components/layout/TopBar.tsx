@@ -9,17 +9,17 @@ import { useRouter } from "next/navigation";
 export function TopBar() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  
+
   // Format avatar initials
   const initials = user?.username ? user.username.substring(0, 2).toUpperCase() : "U";
 
   return (
     <header className="h-16 border-b bg-white dark:bg-slate-900 flex items-center justify-between px-4 md:px-6 z-10 sticky top-0">
       <div className="md:hidden font-bold text-lg tracking-tight text-primary">
-        JokiSystem.
+        JokiFlow.
       </div>
       <div className="hidden md:block" /> {/* Spacer */}
-      
+
       <div className="flex items-center gap-4">
         <span className="text-sm font-medium hidden sm:block">
           Hi, {user?.username}

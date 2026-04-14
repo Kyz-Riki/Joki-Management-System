@@ -367,7 +367,7 @@ export default function PublicQueuePage() {
             href="/"
             className="font-bold text-slate-500 hover:text-primary"
           >
-            JokiSystem.
+            JokiFlow.
           </Link>
         </p>
       </div>

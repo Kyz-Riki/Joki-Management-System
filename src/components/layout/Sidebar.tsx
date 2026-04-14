@@ -19,7 +19,7 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <div className={cn("w-64 border-r bg-white dark:bg-slate-900 flex-col", className)}>
       <div className="h-16 flex items-center px-6 border-b font-bold text-xl tracking-tight text-primary">
-        JokiSystem.
+        JokiFlow.
       </div>
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         {navItems.map((item) => (
