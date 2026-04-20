@@ -148,6 +148,7 @@ src/
 | `POST` | `/api/containers/[cId]/orders` | ✅ | Menyuntikkan _order_ tiket pelanggan terbaru ke antrean |
 | `PATCH` | `/api/containers/[cId]/orders/[oId]/status` | ✅ | Edit siklus pengerjaan pesanan |
 | `DELETE` | `/api/containers/[cId]/orders/[oId]` | ✅ | Pembatalan fatal / penghapusan mendesak sebuah pesanan |
+| `GET` | `/api/dashboard/summary` | ✅ | Menarik ringkasan data dashboard dalam satu query (pekerja, kontainer, pesanan aktif & selesai) |
 | `GET` | `/api/public/queue/[username]/[gameCode]`| ❌ | Render data murni yang bisa dilirik oleh sistem anonim publik |
 | `POST` | `/api/cron/auto-archive` | 🔑 | Automasi bot pemindah status order kadaluarsa (Job task harian) |
 
