@@ -9,6 +9,12 @@ export type Container = {
   is_active: boolean;
   active_orders_count: number;
 };
+export type DashboardSummary = {
+  workers_count: number;
+  containers: Container[];
+  done_today: number;
+  total_active_orders: number;
+};
 export type Order = {
   id: string;
   uid?: string;
@@ -38,6 +44,11 @@ async function apiFetch(url: string, options?: RequestInit): Promise<any> {
 }
 
 export const api = {
+  dashboard: {
+    summary: async (): Promise<DashboardSummary> => {
+      return apiFetch("/api/dashboard/summary");
+    },
+  },
   workers: {
     list: async (): Promise<Worker[]> => {
       const data = await apiFetch("/api/workers");
